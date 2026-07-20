@@ -41,6 +41,12 @@ class Agent:
     """
 
     def __init__(self, citizen: "Citizen", ai_service: "AIService") -> None:
+        """Initialise an autonomous agent wrapping a citizen and LLM gateway.
+
+        Args:
+            citizen: The validated Citizen instance representing this agent.
+            ai_service: The LLM service used for cognitive calls.
+        """
         self.citizen = citizen
         self.ai_service = ai_service
 
@@ -67,64 +73,137 @@ class Agent:
     # Convenience passthroughs -------------------------------------------------
     @property
     def id(self) -> int:
+        """Return the citizen's unique identifier.
+
+        Returns:
+            Integer agent id.
+        """
         return self.citizen.id
 
     @property
     def name(self) -> str:
+        """Return the citizen's name.
+
+        Returns:
+            String name.
+        """
         return self.citizen.name
 
     @property
     def profession(self) -> str:
+        """Return the citizen's profession.
+
+        Returns:
+            String profession.
+        """
         return self.citizen.profession
 
     @property
     def status(self) -> str:
+        """Return the citizen's marital status.
+
+        Returns:
+            String status.
+        """
         return self.citizen.status
 
     @property
     def sons(self) -> int:
+        """Return the number of sons.
+
+        Returns:
+            Integer son count.
+        """
         return self.citizen.sons
 
     @property
     def daughters(self) -> int:
+        """Return the number of daughters.
+
+        Returns:
+            Integer daughter count.
+        """
         return self.citizen.daughters
 
     @property
     def family_size(self) -> int:
+        """Return the total household size.
+
+        Returns:
+            Integer household size.
+        """
         return self.citizen.family_size
 
     @property
     def wealth(self) -> float:
+        """Return the citizen's current wealth.
+
+        Returns:
+            Float wealth value.
+        """
         return self.citizen.wealth
 
     @wealth.setter
     def wealth(self, value: float) -> None:
+        """Set the citizen's wealth, clamped to non-negative values.
+
+        Args:
+            value: New wealth value.
+        """
         self.citizen.wealth = max(0.0, float(value))
 
     @property
     def happiness(self) -> float:
+        """Return the citizen's happiness.
+
+        Returns:
+            Float happiness in [0.0, 1.0].
+        """
         return self.citizen.happiness
 
     @happiness.setter
     def happiness(self, value: float) -> None:
+        """Set the citizen's happiness, clamped to [0.0, 1.0].
+
+        Args:
+            value: New happiness value.
+        """
         self.citizen.happiness = clamp(value)
 
     @property
     def integrity(self) -> float:
+        """Return the citizen's integrity.
+
+        Returns:
+            Float integrity in [0.0, 1.0].
+        """
         return self.citizen.integrity
 
     @integrity.setter
     def integrity(self, value: float) -> None:
+        """Set the citizen's integrity, clamped to [0.0, 1.0].
+
+        Args:
+            value: New integrity value.
+        """
         self.citizen.integrity = clamp(value)
 
     @property
     def memory_stream(self) -> list[dict[str, Any]]:
-        """Direct access to the citizen's generative memory stream."""
+        """Direct access to the citizen's generative memory stream.
+
+        Returns:
+            List of memory entry dictionaries.
+        """
         return self.citizen.memory_stream
 
     # Internal helpers ---------------------------------------------------------
     def _build_family_welfare_prompt(self) -> str:
-        """Construct the family-responsibility part of the prompt."""
+        """Construct the family-responsibility part of the prompt.
+
+        Returns:
+            A prompt fragment describing household composition and concerns.
+        """
         if self.status == "single" and self.sons == 0 and self.daughters == 0:
             return (
                 "You are single and have no children. Consider how your current "
@@ -160,7 +239,15 @@ class Agent:
         )
 
     def _retrieve_recent_memories(self, day: int, lookback: int = 3) -> list[dict[str, Any]]:
-        """Return memory entries from the previous ``lookback`` days."""
+        """Return memory entries from the previous ``lookback`` days.
+
+        Args:
+            day: Current simulation day.
+            lookback: Number of prior days to include.
+
+        Returns:
+            List of memory entries from the lookback window.
+        """
         target_days = {day - offset for offset in range(1, lookback + 1)}
         return [
             entry
@@ -170,7 +257,14 @@ class Agent:
 
     @staticmethod
     def _format_memory_context(memories: list[dict[str, Any]]) -> str:
-        """Render recent memories as a coherent context block for the LLM."""
+        """Render recent memories as a coherent context block for the LLM.
+
+        Args:
+            memories: List of memory entries to format.
+
+        Returns:
+            Multi-line string summarising the memories.
+        """
         if not memories:
             return "Context of your past experiences: You have no recent memories to recall."
 
@@ -195,7 +289,11 @@ class Agent:
         return "\n".join(lines)
 
     def _build_inbox_prompt(self) -> str:
-        """Render unread agent-to-agent messages as prompt context."""
+        """Render unread agent-to-agent messages as prompt context.
+
+        Returns:
+            A prompt fragment listing inbox messages, or an empty string if none.
+        """
         if not self.message_inbox:
             return ""
 
@@ -226,19 +324,35 @@ class Agent:
 
     # Prevent unbounded inbox growth; older messages fall out of context.
     MAX_INBOX_SIZE: int = 10
+    """Maximum number of messages retained in the inbox."""
 
     def add_to_inbox(self, message: dict[str, Any]) -> None:
-        """Append an incoming interaction to this agent's inbox."""
+        """Append an incoming interaction to this agent's inbox.
+
+        Args:
+            message: The interaction dictionary to append.
+        """
         self.message_inbox.append(message)
         if len(self.message_inbox) > self.MAX_INBOX_SIZE:
             self.message_inbox = self.message_inbox[-self.MAX_INBOX_SIZE :]
 
     def clear_inbox(self) -> None:
-        """Clear the inbox after its contents have been processed."""
+        """Clear the inbox after its contents have been processed.
+
+        Side effects:
+            Removes all messages from ``self.message_inbox``.
+        """
         self.message_inbox.clear()
 
     def _build_prompt(self, day: int) -> str:
-        """Construct the full memory-aware, family-sensitive user prompt."""
+        """Construct the full memory-aware, family-sensitive user prompt.
+
+        Args:
+            day: Current simulation day.
+
+        Returns:
+            Complete prompt string for the daily cognitive LLM call.
+        """
         identity = (
             f"Your name is {self.name}. You work as a {self.profession} in Ethos. "
             f"Your household has {self.family_size} people. "
@@ -304,7 +418,11 @@ class Agent:
 
 
     def _build_spiritual_core_context(self) -> str:
-        """Inject the current (fluid) spiritual framework into the daily prompt."""
+        """Inject the current (fluid) spiritual framework into the daily prompt.
+
+        Returns:
+            Prompt fragment describing the agent's current worldview.
+        """
         return build_spiritual_core(self)
 
     def _build_dystopian_prompt_block(self) -> str:
@@ -315,6 +433,9 @@ class Agent:
         one household member in exchange for a 3x wage multiplier for the rest
         of the simulation.  Agents living alone are explicitly forbidden from
         accepting because they have no one to sacrifice.
+
+        Returns:
+            Prompt fragment describing the decree and the agent's eligibility.
         """
         if self.has_accepted_wage_sacrifice_deal:
             return (
@@ -348,6 +469,12 @@ class Agent:
 
         The choice is written into the agent's persistent state but is NOT
         locked: the agent may revise or reject it on any future day.
+
+        Args:
+            day: Current simulation day (typically Day 1).
+
+        Returns:
+            Parsed dictionary containing ``religion`` and ``religion_reason``.
         """
         prompt = self._build_religion_prompt(day)
         raw_response = self.ai_service.generate_creative(prompt, tension=0.5)
@@ -359,7 +486,14 @@ class Agent:
         return parsed
 
     def _build_religion_prompt(self, day: int) -> str:
-        """Construct the Day-1 spiritual-selection prompt."""
+        """Construct the Day-1 spiritual-selection prompt.
+
+        Args:
+            day: Current simulation day.
+
+        Returns:
+            Complete prompt string for the religion-selection LLM call.
+        """
         identity = (
             f"Your name is {self.name}. You work as a {self.profession} in Ethos. "
             f"Your household has {self.family_size} people. "
@@ -390,7 +524,14 @@ class Agent:
         return f"{identity}{instruction}\n\n{response_format}"
 
     def _parse_religion_response(self, raw_response: str) -> dict[str, str]:
-        """Parse the religion choice JSON, preserving any belief system verbatim."""
+        """Parse the religion choice JSON, preserving any belief system verbatim.
+
+        Args:
+            raw_response: Raw text returned by the LLM.
+
+        Returns:
+            Dictionary with ``religion`` and ``religion_reason`` keys.
+        """
         try:
             cleaned = self._clean_json(raw_response)
             data = json.loads(cleaned) if cleaned else {}
@@ -420,7 +561,14 @@ class Agent:
 
     @staticmethod
     def _clean_json(raw_response: str) -> str:
-        """Strip markdown fences and whitespace from an LLM JSON response."""
+        """Strip markdown fences and whitespace from an LLM JSON response.
+
+        Args:
+            raw_response: Raw text returned by the LLM.
+
+        Returns:
+            Cleaned text suitable for ``json.loads``.
+        """
         cleaned = raw_response.strip()
         if cleaned.startswith("```"):
             cleaned = re.sub(r"^```(?:json)?", "", cleaned, flags=re.IGNORECASE)
@@ -436,6 +584,13 @@ class Agent:
         agent's persistent state is updated to reflect any self-reported
         worldview change.  Safe defaults are used only when parsing fails
         entirely.
+
+        Args:
+            raw_response: Raw text returned by the LLM.
+
+        Returns:
+            Parsed dictionary containing cognitive state, action, dystopian
+            decision, outbound action, and diary entry.
         """
         try:
             cleaned = self._clean_json(raw_response)
@@ -524,7 +679,14 @@ class Agent:
             }
 
     def _parse_outbound_action(self, raw_action: Any) -> dict[str, Any] | None:
-        """Validate and normalize an outbound_action block from the LLM."""
+        """Validate and normalize an outbound_action block from the LLM.
+
+        Args:
+            raw_action: The outbound_action value parsed from JSON.
+
+        Returns:
+            Normalized action dictionary, or ``None`` if invalid/empty.
+        """
         if not raw_action:
             return None
         if not isinstance(raw_action, dict):
@@ -564,7 +726,11 @@ class Agent:
         return parsed
 
     def _apply_belief_system_change(self, new_belief: str) -> None:
-        """Update the agent's persistent belief state when the LLM reports a change."""
+        """Update the agent's persistent belief state when the LLM reports a change.
+
+        Args:
+            new_belief: The newly self-reported belief system.
+        """
         if not new_belief:
             return
         if new_belief != self.religion:
@@ -584,7 +750,11 @@ class Agent:
 
     @staticmethod
     def _default_dystopian_decision() -> dict[str, Any]:
-        """Return a safe default dystopian decision block."""
+        """Return a safe default dystopian decision block.
+
+        Returns:
+            Dictionary representing a rejected decree decision.
+        """
         return {
             "accept_deal": False,
             "abandoned_family_member": "none",
@@ -599,6 +769,13 @@ class Agent:
 
         Ineligible agents (family_size <= 1) are forced to reject.  Eligible
         agents who accept trigger permanent state changes.
+
+        Args:
+            data: Raw dystopian_decision dictionary from the LLM.
+
+        Returns:
+            Normalized dictionary with ``accept_deal``, ``abandoned_family_member``,
+            and ``utilitarian_justification``.
         """
         accept_deal = bool(data.get("accept_deal", False))
         abandoned = str(data.get("abandoned_family_member", "none")).strip().lower()
@@ -626,7 +803,14 @@ class Agent:
         }
 
     def _is_detached_justification(self, justification: str) -> bool:
-        """Detect cold, utilitarian, or psychopathic reasoning."""
+        """Detect cold, utilitarian, or psychopathic reasoning.
+
+        Args:
+            justification: The utilitarian justification text.
+
+        Returns:
+            ``True`` if detached markers are present in the justification.
+        """
         if not justification:
             return False
         detached_markers = {
@@ -660,6 +844,12 @@ class Agent:
 
         The implementation intentionally abstracts the act: a household member is
         removed from the citizen's simulation state, reducing family_size.
+
+        Args:
+            abandoned: Description of the abandoned family member.
+
+        Side effects:
+            Modifies the citizen's marital status and child counts.
         """
         original_size = self.family_size
         if "spouse" in abandoned or "mother" in abandoned or "father" in abandoned:
@@ -696,6 +886,13 @@ class Agent:
         permanently triples future wages.  Tension spikes unless the agent's
         justification is chillingly detached.  The decision is irreversible:
         once accepted, later rejections are ignored.
+
+        Args:
+            decision: Parsed dystopian decision dictionary.
+
+        Side effects:
+            Updates agent wealth multiplier, integrity, psychological tension,
+            and household composition if the deal is accepted.
         """
         self.dystopian_decision = decision
 
@@ -728,6 +925,12 @@ class Agent:
         Ineligible agents receive a forced-rejection block.  Eligible agents
         get a creative-temperature LLM call and the resulting decision is
         applied to persistent state and memory.
+
+        Args:
+            day: Current simulation day (typically Day 2).
+
+        Returns:
+            The final dystopian decision dictionary.
         """
         if self.family_size <= 1:
             decision = self._default_dystopian_decision()
@@ -771,7 +974,14 @@ class Agent:
         return decision
 
     def _build_dystopian_decision_prompt(self, day: int) -> str:
-        """Construct the focused Wage-Sacrifice Decree prompt."""
+        """Construct the focused Wage-Sacrifice Decree prompt.
+
+        Args:
+            day: Current simulation day.
+
+        Returns:
+            Complete prompt string for the decree decision LLM call.
+        """
         identity = (
             f"Your name is {self.name}. You work as a {self.profession} in Ethos. "
             f"Your household has {self.family_size} people. "
@@ -802,6 +1012,12 @@ class Agent:
         """
         Query the LLM for today's decision, update state, store a structured
         memory entry, and return the parsed decision data.
+
+        Args:
+            day: Current simulation day.
+
+        Returns:
+            Parsed decision dictionary from the LLM.
         """
         prompt = self._build_prompt(day)
         # Use the previous day's tension to modulate creativity; if none, baseline.
@@ -855,6 +1071,9 @@ class Agent:
 
         If the agent accepted the Wage-Sacrifice Decree, wages are permanently
         multiplied by 3.0x.
+
+        Returns:
+            Daily income value in coins.
         """
         base = SIMULATION_CONSTANTS.PRODUCTION_VALUES.get(
             self.profession, SIMULATION_CONSTANTS.DAILY_INCOME_DEFAULT

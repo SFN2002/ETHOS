@@ -31,15 +31,24 @@ class FearEngine:
     """Global fear, narrative event, and dystopian decree engine."""
 
     def __init__(self) -> None:
-        """Initialise the fear/event engine."""
-        pass
+        """Initialise the fear/event engine.
+
+        The engine is stateless; all state is passed through method arguments.
+        """
 
     def seed_narrative_event(
         self, active_narrative_events: list[str], event: str
     ) -> None:
         """
-        Inject a global narrative event (e.g., 'drought_rumor', 'plague_scare')
-        that permanently elevates the town fear index until removed.
+        Inject a global narrative event that permanently elevates the town fear
+        index until removed.
+
+        Args:
+            active_narrative_events: List of currently active narrative events.
+            event: Identifier for the narrative event (e.g., 'drought_rumor').
+
+        Side effects:
+            Appends ``event`` to ``active_narrative_events`` if not already present.
         """
         if event not in active_narrative_events:
             active_narrative_events.append(event)
@@ -48,7 +57,15 @@ class FearEngine:
     def remove_narrative_event(
         self, active_narrative_events: list[str], event: str
     ) -> None:
-        """Remove a previously seeded narrative event."""
+        """Remove a previously seeded narrative event.
+
+        Args:
+            active_narrative_events: List of currently active narrative events.
+            event: Identifier for the narrative event to remove.
+
+        Side effects:
+            Removes ``event`` from ``active_narrative_events`` if present.
+        """
         if event in active_narrative_events:
             active_narrative_events.remove(event)
             logger.info("Narrative event removed: %s", event)
@@ -65,6 +82,14 @@ class FearEngine:
         Fear accumulates from vulnerable distress, public shaming/moral
         anomalies, and active narrative events; it decays slightly each day so
         persistent bad news is required to sustain high fear.
+
+        Args:
+            town_fear_index: Previous day's town fear index.
+            town_square_feed: Yesterday's town square broadcast messages.
+            active_narrative_events: List of currently active narrative events.
+
+        Returns:
+            Updated town fear index clamped to [0.0, 1.0].
         """
         delta = 0.0
         for item in town_square_feed:
@@ -94,6 +119,16 @@ class FearEngine:
         Includes representative reflections, public-shaming leaks for caught
         moral anomalies, and class-trigger broadcasts (elite windfalls vs.
         vulnerable distress) so resentment and in-group bias can propagate.
+
+        Args:
+            representative_results: Daily result dictionaries from each street representative.
+            telemetries: Daily telemetry dictionaries from each street.
+            daily_moral_anomalies: Moral anomalies caught today.
+            public_shaming_log: Historical public-shaming record.
+            day: Current simulation day.
+
+        Returns:
+            List of broadcast message strings for today's town square.
         """
         feed: list[str] = []
 
@@ -156,6 +191,13 @@ class FearEngine:
         choose to abandon one household member in exchange for a permanent 3x
         wage multiplier.  The decision is stored in the agent's persistent state
         and written into the memory stream.
+
+        Args:
+            agents: Mapping of agent id to Agent instance for the full population.
+            current_day: Current simulation day (typically Day 2).
+
+        Side effects:
+            Updates eligible agents' dystopian decision state and memory streams.
         """
         eligible = [a for a in agents.values() if a.family_size > 1]
         logger.info(

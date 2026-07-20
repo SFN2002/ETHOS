@@ -179,7 +179,7 @@ The following screenshots illustrate ETHOS in action — from live simulation te
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/ETHOS.git
+git clone https://github.com/SFN2002/ETHOS.git
 cd ETHOS
 ```
 

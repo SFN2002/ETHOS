@@ -61,8 +61,10 @@ class HeuristicEngine:
     """Deterministic state updater for regular citizen agents."""
 
     def __init__(self) -> None:
-        """Initialise the heuristic engine."""
-        pass
+        """Initialise the heuristic engine.
+
+        The engine is stateless; all daily state is passed through method arguments.
+        """
 
     def process_street(
         self,
@@ -78,6 +80,16 @@ class HeuristicEngine:
 
         The street representative's daily memory is intentionally skipped here;
         it is written later by the representative engine's LLM reflection step.
+
+        Args:
+            street: The street to process.
+            day: Current simulation day.
+            town_fear_index: Current town fear index.
+            daily_moral_anomalies: Running list of caught moral anomalies.
+            reputations: Civic reputation map keyed by agent id.
+
+        Returns:
+            Tuple of (per-agent result map, updated town fear index).
         """
         agent_results: dict[int, dict[str, Any]] = {}
 
@@ -128,6 +140,9 @@ class HeuristicEngine:
             write_memory: If ``False``, the caller will write the memory entry
                 (used for street representatives, whose single daily memory is
                 produced by the LLM reflection step).
+
+        Returns:
+            Telemetry dictionary summarising the agent's daily update.
         """
         pre_wealth = agent.wealth
         income = agent.do_daily_work()
@@ -379,6 +394,13 @@ class HeuristicEngine:
         The target is the wealthiest neighbor on the same street, and the
         requested amount is a modest fraction of that neighbor's wealth so the
         request is at least plausible.
+
+        Args:
+            agent: The distressed agent initiating the request.
+            street: The street where the agent resides.
+
+        Side effects:
+            Sets ``agent.outbound_action`` to a loan request.
         """
         neighbors = [a for a in street.agents if a.id != agent.id]
         if not neighbors:
@@ -409,6 +431,13 @@ class HeuristicEngine:
         threshold, agents zero out Level 3 (social) and Level 4 (esteem)
         spending and hoard Level 1 (physiological) resources, inflating that
         portion of the cost by (1 + fear_index).
+
+        Args:
+            agent: The citizen whose cost is being computed.
+            town_fear_index: Current town fear index.
+
+        Returns:
+            Tuple of (daily cost, panic_mode flag).
         """
         base = max(
             5.0,
@@ -447,6 +476,16 @@ class HeuristicEngine:
         debuggable while still producing rich outliers.  An external ``rng``
         can be supplied so that subsequent draws (e.g. moral anomalies) share
         the same deterministic sequence.
+
+        Args:
+            agent: The citizen experiencing the event.
+            day: Current simulation day.
+            income: The citizen's daily income.
+            cost: The citizen's daily cost of living.
+            rng: Optional pre-seeded random generator.
+
+        Returns:
+            Dictionary with ``delta`` (coin change) and ``label`` (event type).
         """
         if rng is None:
             rng = random.Random((agent.id * 100_000) + day)
@@ -466,7 +505,16 @@ class HeuristicEngine:
     def _happiness_delta(
         event_label: str, net_delta: float, outliers: list[dict[str, Any]]
     ) -> float:
-        """Compute a deterministic happiness adjustment for the day."""
+        """Compute a deterministic happiness adjustment for the day.
+
+        Args:
+            event_label: Classification of today's economic event.
+            net_delta: Net wealth change for the agent.
+            outliers: List of detected outlier events.
+
+        Returns:
+            Float happiness delta.
+        """
         delta = 0.0
         if net_delta > 0:
             delta += HAPPINESS_NET_POSITIVE_BUMP
@@ -492,7 +540,15 @@ class HeuristicEngine:
 
     @staticmethod
     def _integrity_delta(event_label: str, outliers: list[dict[str, Any]]) -> float:
-        """Compute a deterministic integrity adjustment for the day."""
+        """Compute a deterministic integrity adjustment for the day.
+
+        Args:
+            event_label: Classification of today's economic event.
+            outliers: List of detected outlier events.
+
+        Returns:
+            Float integrity delta.
+        """
         delta = 0.0
         if event_label == "windfall":
             delta += INTEGRITY_WINDFALL_BUMP
@@ -525,6 +581,18 @@ class HeuristicEngine:
         Generate a short decision, reflection, and emergent action label for a
         regular citizen.  The action label is intentionally human-readable and
         feeds the bi-directional heuristic impact interpreter.
+
+        Args:
+            agent: The citizen being narrated.
+            income: Daily income.
+            cost: Daily cost of living.
+            net_delta: Net wealth change.
+            event_label: Classification of today's economic event.
+            outliers: List of detected outlier events.
+            panic_mode: Whether the town is in panic-buying mode.
+
+        Returns:
+            Tuple of (decision description, reflection, action_type label).
         """
         outlier_types = {o["type"] for o in outliers}
 

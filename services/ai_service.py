@@ -32,6 +32,12 @@ class AIService:
     configuration, making it easy to inject into any number of agents.  It now
     exposes explicit temperature control so callers can modulate creativity per
     cognitive context.
+
+    Attributes:
+        CREATIVE_TEMPERATURE: Baseline creative temperature for daily cognitive calls.
+        HIGH_TENSION_TEMPERATURE: Maximum temperature reached under high tension.
+        FALLBACK_RESPONSE: Deterministic JSON response used when API calls fail.
+        SYSTEM_PROMPT: Default system prompt for citizen agents.
     """
 
     # Default elevated temperature for daily cognitive calls.
@@ -87,12 +93,21 @@ class AIService:
     )
 
     def __init__(self, settings: Settings | None = None) -> None:
+        """Initialise the AI service with optional settings.
+
+        Args:
+            settings: Application settings instance; loaded from environment if omitted.
+        """
         self.settings = settings or get_settings()
         self._client: OpenAI | None = None
 
     @property
     def client(self) -> OpenAI:
-        """Lazy initialised OpenAI-compatible client."""
+        """Lazy initialised OpenAI-compatible client.
+
+        Returns:
+            Configured OpenAI client instance.
+        """
         if self._client is None:
             self._client = OpenAI(
                 api_key=self.settings.deepseek_api_key,
@@ -108,6 +123,12 @@ class AIService:
 
         Baseline creative temperature is 0.85.  As tension rises, the ceiling
         climbs toward 0.90 to allow more radical divergences.
+
+        Args:
+            tension: Psychological tension value in [0.0, 1.0], or None.
+
+        Returns:
+            Creative temperature value.
         """
         base = self.CREATIVE_TEMPERATURE
         if tension is None:
@@ -124,7 +145,16 @@ class AIService:
         system_prompt: str | None = None,
         temperature: float | None = None,
     ) -> str:
-        """Execute a single chat-completion request."""
+        """Execute a single chat-completion request.
+
+        Args:
+            prompt: The user prompt to send.
+            system_prompt: Optional override for the system prompt.
+            temperature: Optional sampling temperature.
+
+        Returns:
+            Trimmed text content from the model response.
+        """
         system_content = system_prompt if system_prompt is not None else self.SYSTEM_PROMPT
         effective_temperature = (
             temperature
@@ -144,7 +174,14 @@ class AIService:
         return (content or "").strip()
 
     def _exponential_backoff(self, attempt: int) -> float:
-        """Return the sleep duration for the given retry attempt."""
+        """Return the sleep duration for the given retry attempt.
+
+        Args:
+            attempt: Zero-based retry attempt number.
+
+        Returns:
+            Sleep duration in seconds, capped at 30 seconds.
+        """
         return min(2.0**attempt, 30.0)
 
     def generate(
@@ -162,9 +199,9 @@ class AIService:
             temperature: Optional temperature override.  When omitted, the
                 configured default temperature is used.
 
-        If the API is unreachable, misconfigured, or returns invalid content,
-        a deterministic fallback JSON string is returned so callers can always
-        parse the result safely.
+        Returns:
+            Raw text response from the model, or a deterministic fallback JSON
+            string if all retries fail.
         """
         if not self.settings.deepseek_api_key:
             logger.warning("DEEPSEEK_API_KEY not configured; returning fallback response.")
@@ -222,6 +259,14 @@ class AIService:
         Uses a baseline temperature of 0.85, rising to 0.90 as
         ``tension`` approaches 1.0.  This is the preferred entry point for
         daily action and reflection calls.
+
+        Args:
+            prompt: The user prompt to send to the model.
+            system_prompt: Optional override for the system prompt.
+            tension: Psychological tension value in [0.0, 1.0] used to modulate temperature.
+
+        Returns:
+            Raw text response from the model.
         """
         temperature = self._temperature_for_tension(tension)
         return self.generate(
@@ -231,7 +276,11 @@ class AIService:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a safe, serialisable summary of the service configuration."""
+        """Return a safe, serialisable summary of the service configuration.
+
+        Returns:
+            Dictionary of model, URL, timeout, retry, and temperature settings.
+        """
         return {
             "model": self.settings.deepseek_model,
             "base_url": self.settings.deepseek_base_url,

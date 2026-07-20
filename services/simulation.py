@@ -41,6 +41,13 @@ class SimulationEngine:
          citizens into socio-economic streets with elected representatives.
       3. Run the day loop and persist daily agent metrics and memories.
       4. Emit summary reports.
+
+    Attributes:
+        settings: Application settings instance.
+        ai_service: LLM service gateway.
+        db: MySQL repository for persistence.
+        city: The simulated city.
+        run_history: Per-day metrics and feed history.
     """
 
     def __init__(
@@ -49,6 +56,13 @@ class SimulationEngine:
         ai_service: AIService | None = None,
         db_repository: DBRepository | None = None,
     ) -> None:
+        """Initialise the simulation engine with settings, AI service, and database.
+
+        Args:
+            settings: Optional application settings override.
+            ai_service: Optional LLM service override.
+            db_repository: Optional database repository override.
+        """
         self.settings = settings or get_settings()
         self.ai_service = ai_service or AIService(self.settings)
         self.db = db_repository or DBRepository()
@@ -56,7 +70,14 @@ class SimulationEngine:
         self.run_history: list[dict] = []
 
     def load_citizens(self) -> list[Citizen]:
-        """Load the raw citizen records from JSON and validate them."""
+        """Load the raw citizen records from JSON and validate them.
+
+        Returns:
+            List of validated Citizen models.
+
+        Raises:
+            ValueError: If the JSON file does not contain a list.
+        """
         raw_data = load_json(self.settings.citizens_path)
         if not isinstance(raw_data, list):
             raise ValueError(
@@ -71,6 +92,12 @@ class SimulationEngine:
         """
         Create agents from citizens, register them in the city, and perform
         socio-economic street zoning plus representative selection.
+
+        Args:
+            citizens: List of validated Citizen models.
+
+        Returns:
+            The populated City instance.
         """
         for citizen in citizens:
             agent = Agent(citizen=citizen, ai_service=self.ai_service)
@@ -134,6 +161,9 @@ class SimulationEngine:
         heuristic processing or representative reflection.  This orchestration
         step ensures that any agent whose turn failed still has a fallback entry
         for the day, and it logs the day's capture.
+
+        Side effects:
+            Appends fallback memory entries to agents missing one for today.
         """
         day = self.city.current_day
         for agent in self.city.agents.values():
@@ -154,7 +184,11 @@ class SimulationEngine:
         logger.info("Captured daily memories for Day %d.", day)
 
     def _persist_daily_results(self) -> None:
-        """Persist the current day's agent metrics, memories, and interactions."""
+        """Persist the current day's agent metrics, memories, and interactions.
+
+        Side effects:
+            Writes daily metrics, memories, and interactions to the database.
+        """
         day = self.city.current_day
         daily_metrics: list[dict] = []
         daily_memories: list[dict] = []
@@ -194,7 +228,15 @@ class SimulationEngine:
         )
 
     def _build_summary(self, days: int, final_metrics: dict) -> dict:
-        """Assemble a serialisable run summary."""
+        """Assemble a serialisable run summary.
+
+        Args:
+            days: Number of simulated days.
+            final_metrics: Town-wide aggregate metrics at the end of the run.
+
+        Returns:
+            Complete run summary dictionary.
+        """
         return {
             "run_id": datetime.now(timezone.utc).isoformat(),
             "city": self.city.name,
@@ -251,7 +293,14 @@ class SimulationEngine:
         }
 
     def _persist_results(self, summary: dict) -> None:
-        """Write the simulation summary to the data/logs directory."""
+        """Write the simulation summary to the data/logs directory.
+
+        Args:
+            summary: Run summary dictionary to serialise.
+
+        Side effects:
+            Writes a timestamped JSON file to ``data/logs/``.
+        """
         log_dir = Path(self.settings.data_dir) / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -263,5 +312,12 @@ class SimulationEngine:
 
     @staticmethod
     def describe_metrics(metrics: dict) -> dict:
-        """Return descriptive statistics for a metrics dictionary."""
+        """Return descriptive statistics for a metrics dictionary.
+
+        Args:
+            metrics: Dictionary of numeric metric values.
+
+        Returns:
+            Dictionary of descriptive statistics keyed by metric name.
+        """
         return describe(metrics)

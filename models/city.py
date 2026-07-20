@@ -38,9 +38,36 @@ class City:
     """
     Lightweight coordinator that owns city-wide state and delegates all daily
     processing to the specialised simulation engines.
+
+    Attributes:
+        name: Name of the city.
+        ai_service: LLM service gateway used by representative-facing engines.
+        heuristic_engine: Deterministic daily update engine.
+        representative_engine: Street zoning and representative LLM engine.
+        fear_engine: Global fear index and narrative event engine.
+        interaction_engine: Agent-to-agent message router.
+        agents: Mapping of agent id to Agent instance.
+        streets: List of socio-economic streets.
+        current_day: Current simulation day.
+        town_square_feed: Today's broadcast messages.
+        town_square_history: Historical archive of town square feeds.
+        reputations: Civic reputation scores keyed by agent id.
+        public_shaming_log: Historical record of public shamings.
+        daily_moral_anomalies: Moral anomalies detected today.
+        interaction_history: Historical record of agent interactions.
+        town_fear_index: Current global fear index.
+        active_narrative_events: Currently active narrative events.
+        fear_history: Historical fear index values.
+        religions_assigned: Whether Day-1 religion assignment has occurred.
     """
 
     def __init__(self, name: str = "Ethos", ai_service: AIService | None = None) -> None:
+        """Initialise a new city with empty state and wired engines.
+
+        Args:
+            name: Name of the city.
+            ai_service: Optional LLM service gateway for representative calls.
+        """
         self.name = name
         self.ai_service = ai_service
 
@@ -77,7 +104,11 @@ class City:
     # Registry
     # -----------------------------------------------------------------------
     def add_agent(self, agent: "Agent") -> None:
-        """Register a citizen-agent in the city using its unique id."""
+        """Register a citizen-agent in the city using its unique id.
+
+        Args:
+            agent: The citizen-agent to register.
+        """
         if agent.id in self.agents:
             logger.warning("Replacing existing agent id=%d: %s", agent.id, agent.name)
         # Reputation is a dynamic civic-health score (1.0 = pristine).
@@ -86,18 +117,30 @@ class City:
 
     @property
     def population(self) -> int:
-        """Number of registered agents."""
+        """Return the number of registered agents.
+
+        Returns:
+            Integer population count.
+        """
         return len(self.agents)
 
     # -----------------------------------------------------------------------
     # Narrative events (delegated to FearEngine)
     # -----------------------------------------------------------------------
     def seed_narrative_event(self, event: str) -> None:
-        """Inject a persistent global narrative event that elevates fear."""
+        """Inject a persistent global narrative event that elevates fear.
+
+        Args:
+            event: Identifier for the narrative event (e.g., 'drought_rumor').
+        """
         self.fear_engine.seed_narrative_event(self.active_narrative_events, event)
 
     def remove_narrative_event(self, event: str) -> None:
-        """Remove a previously seeded narrative event."""
+        """Remove a previously seeded narrative event.
+
+        Args:
+            event: Identifier for the narrative event to remove.
+        """
         self.fear_engine.remove_narrative_event(self.active_narrative_events, event)
 
     # -----------------------------------------------------------------------
@@ -107,6 +150,8 @@ class City:
         """
         Sort agents into socio-economic streets and elect a representative per
         street.
+
+        Populates ``self.streets`` with ten Street instances.
         """
         self.streets = self.representative_engine.organize_streets(self.agents)
 
@@ -123,6 +168,9 @@ class City:
           3. For each street: heuristic update, telemetry aggregation,
              representative LLM reflection.
           4. Compile the Town Square Live Feed for tomorrow.
+
+        Returns:
+            Dictionary of town-wide aggregate metrics for the completed day.
         """
         self.current_day += 1
         logger.info("Starting %s - Day %d", self.name, self.current_day)
@@ -211,7 +259,12 @@ class City:
     # Town-wide metrics and reporting
     # -----------------------------------------------------------------------
     def _aggregate_metrics(self) -> dict[str, Any]:
-        """Compute town-wide aggregate statistics, including fluid cognitive fields."""
+        """Compute town-wide aggregate statistics, including fluid cognitive fields.
+
+        Returns:
+            Dictionary containing wealth, happiness, integrity, fear, religious
+            demography, cognitive, and dystopian-decree aggregates.
+        """
         if not self.agents:
             return {
                 "total_wealth": 0.0,
@@ -312,7 +365,11 @@ class City:
         }
 
     def print_final_report(self) -> None:
-        """Print a comprehensive town summary after all simulated days."""
+        """Print a comprehensive town summary after all simulated days.
+
+        Side effects:
+            Writes a formatted report to standard output.
+        """
         metrics = self._aggregate_metrics()
 
         print("\n" + "=" * 70)

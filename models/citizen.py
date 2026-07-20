@@ -16,6 +16,18 @@ class Citizen(BaseModel):
     The ``memory_stream`` is the citizen's generative memory: a chronologically
     ordered record of daily events, family snapshots, and internal reflections.
     It is mutated by the :class:`~models.agent.Agent` wrapper during simulation.
+
+    Attributes:
+        id: Unique citizen identifier (1-100).
+        name: Citizen first name.
+        profession: Citizen occupation.
+        wealth: Current economic endowment (non-negative).
+        status: Marital status.
+        sons: Number of male children.
+        daughters: Number of female children.
+        happiness: Continuous affect state in [0.0, 1.0].
+        integrity: Continuous moral-trust state in [0.0, 1.0].
+        memory_stream: Chronological stream of daily memory entries.
     """
 
     id: int = Field(..., ge=1, le=100, description="Unique citizen identifier.")
@@ -49,7 +61,14 @@ class Citizen(BaseModel):
     @field_validator("happiness", "integrity", mode="before")
     @classmethod
     def _coerce_float(cls, value: float) -> float:
-        """Ensure these fields are stored as floats."""
+        """Ensure happiness and integrity values are stored as floats.
+
+        Args:
+            value: The incoming numeric value.
+
+        Returns:
+            The value coerced to a float.
+        """
         return float(value)
 
     @property
@@ -59,6 +78,9 @@ class Citizen(BaseModel):
 
         Single citizens are assumed to live alone; all other statuses include
         the citizen plus dependent children.
+
+        Returns:
+            Integer household size.
         """
         if self.status == "single":
             return 1
@@ -66,11 +88,19 @@ class Citizen(BaseModel):
 
     @property
     def children(self) -> int:
-        """Total number of children."""
+        """Return the total number of children.
+
+        Returns:
+            Sum of sons and daughters.
+        """
         return self.sons + self.daughters
 
     def _build_family_status_snapshot(self) -> str:
-        """Return a concise, human-readable family snapshot."""
+        """Return a concise, human-readable family snapshot.
+
+        Returns:
+            String describing marital status and children.
+        """
         child_phrase = "no children"
         if self.children == 1:
             child_phrase = "1 child"
@@ -92,7 +122,13 @@ class Citizen(BaseModel):
         """
         Append a structured memory entry to the citizen's memory stream.
 
-        Returns the entry that was appended.
+        Args:
+            day: Simulation day associated with the memory.
+            event_description: Objective description of the day's event.
+            agent_reflection: Subjective reflection on the event.
+
+        Returns:
+            The dictionary entry that was appended to the memory stream.
         """
         entry = {
             "day": int(day),
@@ -104,5 +140,9 @@ class Citizen(BaseModel):
         return entry
 
     def model_dump_public(self) -> dict:
-        """Serialisable view without internal defaults clutter."""
+        """Return a JSON-serialisable view of the citizen.
+
+        Returns:
+            Dictionary representation of the citizen model.
+        """
         return self.model_dump(mode="json")

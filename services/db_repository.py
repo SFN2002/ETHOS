@@ -6,7 +6,19 @@ load_dotenv()
 
 
 class DBRepository:
+    """MySQL persistence layer for simulation metrics, memories, and interactions.
+
+    Attributes:
+        conn: Active MySQL connection.
+        cursor: MySQL cursor for executing queries.
+    """
+
     def __init__(self):
+        """Initialise the repository and ensure required tables exist.
+
+        Raises:
+            mysql.connector.Error: If the database connection fails.
+        """
         self.conn = mysql.connector.connect(
             host=os.getenv("DB_HOST"),
             user=os.getenv("DB_USER"),
@@ -17,7 +29,11 @@ class DBRepository:
         self._ensure_agent_interactions_table()
 
     def _ensure_agent_interactions_table(self) -> None:
-        """Create the agent_interactions table if it does not yet exist."""
+        """Create the agent_interactions table if it does not yet exist.
+
+        Side effects:
+            Executes a CREATE TABLE IF NOT EXISTS statement and commits.
+        """
         query = (
             "CREATE TABLE IF NOT EXISTS agent_interactions ("
             "  id INT AUTO_INCREMENT PRIMARY KEY,"
@@ -34,6 +50,15 @@ class DBRepository:
         self.conn.commit()
 
     def add_daily_metrics(self, day: int, metrics: list[dict]) -> None:
+        """Persist a batch of daily agent metrics.
+
+        Args:
+            day: Simulation day associated with the metrics.
+            metrics: List of per-agent metric dictionaries.
+
+        Side effects:
+            Inserts rows into the ``daily_metrics`` table.
+        """
         if not metrics:
             return
         query = "INSERT INTO daily_metrics (agent_id, day, wealth, happiness, integrity, reputation, action_type, fear_index) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
@@ -54,6 +79,15 @@ class DBRepository:
         self.conn.commit()
 
     def add_memory(self, day: int, memories: list[dict]) -> None:
+        """Persist a batch of daily agent memories.
+
+        Args:
+            day: Simulation day associated with the memories.
+            memories: List of memory entry dictionaries.
+
+        Side effects:
+            Inserts rows into the ``memories`` table.
+        """
         if not memories:
             return
         query = "INSERT INTO memories (agent_id, day, event_description, agent_reflection, family_status_snapshot, action_type) VALUES (%s, %s, %s, %s, %s, %s)"
@@ -72,7 +106,15 @@ class DBRepository:
         self.conn.commit()
 
     def add_agent_interactions(self, day: int, interactions: list[dict]) -> None:
-        """Persist agent-to-agent social and economic interactions."""
+        """Persist agent-to-agent social and economic interactions.
+
+        Args:
+            day: Simulation day associated with the interactions.
+            interactions: List of interaction record dictionaries.
+
+        Side effects:
+            Inserts rows into the ``agent_interactions`` table.
+        """
         if not interactions:
             return
         query = (
@@ -95,5 +137,10 @@ class DBRepository:
         self.conn.commit()
 
     def close(self):
+        """Close the database cursor and connection.
+
+        Side effects:
+            Releases MySQL resources.
+        """
         self.cursor.close()
         self.conn.close()

@@ -10,7 +10,16 @@ from models.agent import Agent
 
 @dataclass
 class Street:
-    """A socio-economic zone containing exactly ten citizen agents."""
+    """A socio-economic zone containing exactly ten citizen agents.
+
+    Attributes:
+        street_id: Numeric identifier for the street (1-indexed).
+        class_label: Socio-economic class label (e.g., 'vulnerable', 'financial elite').
+        agents: All citizen agents residing on the street.
+        representative: The elected street representative agent.
+        regulars: Non-representative citizen agents on the street.
+        daily_telemetry: Aggregated daily telemetry reports for the street.
+    """
 
     street_id: int
     class_label: str
@@ -21,10 +30,20 @@ class Street:
 
     @property
     def population(self) -> int:
+        """Return the number of agents residing on the street.
+
+        Returns:
+            Integer count of resident agents.
+        """
         return len(self.agents)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialisable street schema compatible with downstream analytics."""
+        """Return a serialisable street schema compatible with downstream analytics.
+
+        Returns:
+            Dictionary containing street metadata, representative cognitive state,
+            and snapshots of all resident agents.
+        """
         return {
             "street_id": self.street_id,
             "class_label": self.class_label,

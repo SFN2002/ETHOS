@@ -42,6 +42,11 @@ class RepresentativeEngine:
     """
 
     def __init__(self, ai_service: "AIService" | None = None) -> None:
+        """Initialise the representative engine.
+
+        Args:
+            ai_service: Optional LLM service gateway for representative calls.
+        """
         self.ai_service = ai_service
 
     def organize_streets(self, agents: dict[int, "Agent"]) -> list[Street]:
@@ -52,6 +57,12 @@ class RepresentativeEngine:
         Streets 1-2 are the vulnerable class, 5-6 the middle class, and 9-10
         the financial elite.  Each street elects one representative based on a
         combination of high integrity and civic profession status.
+
+        Args:
+            agents: Mapping of agent id to Agent instance for the full population.
+
+        Returns:
+            List of Street instances in ascending street-id order.
         """
         population = len(agents)
         if population != EXPECTED_POPULATION:
@@ -108,6 +119,12 @@ class RepresentativeEngine:
         Selection weights high integrity alongside civic/trusted professions
         (Teacher, Police Officer, Banker, Magistrate, Doctor).  If no civic
         profession is present, the agent with the highest integrity wins.
+
+        Args:
+            street_agents: Agents residing on a single street.
+
+        Returns:
+            The elected representative agent.
         """
         max_prestige = max(
             SIMULATION_CONSTANTS.PRODUCTION_VALUES.values(),
@@ -136,7 +153,16 @@ class RepresentativeEngine:
         regular_results: list[dict[str, Any]],
         day: int,
     ) -> dict[str, Any]:
-        """Aggregate the nine regular agents into a report for the representative."""
+        """Aggregate the nine regular agents into a report for the representative.
+
+        Args:
+            street: The street being summarised.
+            regular_results: Per-agent telemetry results for non-representative citizens.
+            day: Current simulation day.
+
+        Returns:
+            Telemetry dictionary containing aggregates, outliers, and snapshots.
+        """
         if not regular_results:
             return {
                 "day": day,
@@ -224,7 +250,14 @@ class RepresentativeEngine:
         return telemetry
 
     def telemetry_to_text(self, telemetry: dict[str, Any]) -> str:
-        """Render telemetry as concise, readable prose for the LLM prompt."""
+        """Render telemetry as concise, readable prose for the LLM prompt.
+
+        Args:
+            telemetry: Street telemetry dictionary.
+
+        Returns:
+            Multi-line string summarising the telemetry.
+        """
         lines: list[str] = []
         agg = telemetry["aggregates"]
         fear = telemetry.get("town_fear_index", 0.0)
@@ -281,6 +314,15 @@ class RepresentativeEngine:
             distress.
           * Public-shaming mandates for every representative when a moral
             anomaly has been leaked to the Town Square Live Feed.
+
+        Args:
+            representative: The street representative agent.
+            street: The street the representative governs.
+            telemetry: Aggregated telemetry for the street's regular agents.
+            town_square_feed: Yesterday's town square broadcasts.
+
+        Returns:
+            List of mandate strings to append to the representative prompt.
         """
         mandates: list[str] = []
         feed = town_square_feed
@@ -392,6 +434,19 @@ class RepresentativeEngine:
         The prompt invites personal reflection, neighbor reflection, and emergent
         action, but imposes no fixed menu.  The previous day's Town Square Live
         Feed is injected so rumors and class sentiment can propagate across streets.
+
+        Args:
+            representative: The street representative agent.
+            street: The street the representative governs.
+            telemetry: Aggregated telemetry for the street's regular agents.
+            rep_own_result: Heuristic update result for the representative themself.
+            current_day: Current simulation day.
+            city_name: Name of the simulated city.
+            town_fear_index: Current town fear index.
+            town_square_feed: Yesterday's town square broadcasts.
+
+        Returns:
+            Tuple of (representative result dictionary, updated town fear index).
         """
         mandates = self.build_psychological_mandates(
             representative, street, telemetry, town_square_feed
@@ -545,7 +600,22 @@ class RepresentativeEngine:
         town_square_feed: list[str],
         mandates: list[str] | None = None,
     ) -> str:
-        """Construct an open-ended cognitive prompt for the street representative."""
+        """Construct an open-ended cognitive prompt for the street representative.
+
+        Args:
+            representative: The street representative agent.
+            street: The street the representative governs.
+            telemetry: Aggregated telemetry for the street's regular agents.
+            rep_own_result: Heuristic update result for the representative themself.
+            current_day: Current simulation day.
+            city_name: Name of the simulated city.
+            town_fear_index: Current town fear index.
+            town_square_feed: Yesterday's town square broadcasts.
+            mandates: Optional list of psychological mandate strings.
+
+        Returns:
+            Complete prompt string for the representative LLM call.
+        """
         mandates = mandates or []
         identity = (
             f"Your name is {representative.name}. You are a {representative.profession} "
@@ -653,7 +723,15 @@ class RepresentativeEngine:
 
     @staticmethod
     def _format_recent_memories(agent: "Agent", lookback: int = 2) -> str:
-        """Render the representative's most recent memory entries as context."""
+        """Render the representative's most recent memory entries as context.
+
+        Args:
+            agent: The representative agent.
+            lookback: Number of recent memory entries to include.
+
+        Returns:
+            Multi-line string summarising recent memories.
+        """
         recent = agent.memory_stream[-lookback:] if agent.memory_stream else []
         if not recent:
             return "You have no recent memories to recall."
@@ -668,7 +746,16 @@ class RepresentativeEngine:
 
     @staticmethod
     def _parse_representative_response(raw_response: str, agent: "Agent") -> dict[str, Any]:
-        """Parse a representative's open-ended JSON response with safe fallbacks."""
+        """Parse a representative's open-ended JSON response with safe fallbacks.
+
+        Args:
+            raw_response: Raw text returned by the LLM.
+            agent: The representative agent (used for fallback values).
+
+        Returns:
+            Parsed dictionary containing cognitive state, reflections, action,
+            and outbound action.
+        """
         try:
             cleaned = raw_response.strip()
             if cleaned.startswith("```"):
@@ -795,6 +882,12 @@ class RepresentativeEngine:
         Each agent receives its own LLM prompt. The response is parsed, locked
         into the agent's persistent state, and noted in the Day 1 memory stream.
         Calls are executed with bounded concurrency to keep Day 1 runtime reasonable.
+
+        Args:
+            agents: Mapping of agent id to Agent instance for the full population.
+
+        Side effects:
+            Updates each agent's religion, religion_reason, and Day-1 memory.
         """
         logger.info("Assigning religions to all %d citizens on Day 1.", len(agents))
 

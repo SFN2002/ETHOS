@@ -33,10 +33,21 @@ class InteractionEngine:
     """Routes agent-to-agent messages and financial transactions."""
 
     def __init__(self) -> None:
-        pass
+        """Initialise the interaction engine.
+
+        The engine is stateless; all routing state is passed through method arguments.
+        """
 
     def process_day(self, city: "City", day: int) -> list[dict[str, Any]]:
-        """Process outbound actions and random encounters for the given day."""
+        """Process outbound actions and random encounters for the given day.
+
+        Args:
+            city: The simulated city containing all agents.
+            day: Current simulation day.
+
+        Returns:
+            List of interaction records generated today.
+        """
         interactions: list[dict[str, Any]] = []
         interactions.extend(self.process_outbound_actions(city, day))
         interactions.extend(self.generate_random_encounters(city, day))
@@ -48,6 +59,13 @@ class InteractionEngine:
 
         Actions are cleared after processing so they are not replayed on a
         subsequent day.
+
+        Args:
+            city: The simulated city containing all agents.
+            day: Current simulation day.
+
+        Returns:
+            List of interaction records generated from outbound actions.
         """
         interactions: list[dict[str, Any]] = []
         for agent in list(city.agents.values()):
@@ -76,7 +94,17 @@ class InteractionEngine:
         action: dict[str, Any],
         day: int,
     ) -> dict[str, Any] | None:
-        """Dispatch a single outbound action by its type."""
+        """Dispatch a single outbound action by its type.
+
+        Args:
+            city: The simulated city containing all agents.
+            sender: The agent initiating the action.
+            action: The outbound action dictionary.
+            day: Current simulation day.
+
+        Returns:
+            Interaction record, or ``None`` if the action is invalid.
+        """
         target_id = action.get("target_agent_id")
         target = city.agents.get(target_id)
         if target is None or target.id == sender.id:
@@ -115,7 +143,17 @@ class InteractionEngine:
         message: str,
         day: int,
     ) -> dict[str, Any]:
-        """Deliver a chat message to the target's inbox."""
+        """Deliver a chat message to the target's inbox.
+
+        Args:
+            sender: The agent sending the chat.
+            target: The agent receiving the chat.
+            message: The chat message text.
+            day: Current simulation day.
+
+        Returns:
+            Interaction record for the chat.
+        """
         target.add_to_inbox(
             {
                 "day": day,
@@ -142,7 +180,18 @@ class InteractionEngine:
         message: str,
         day: int,
     ) -> dict[str, Any]:
-        """Deliver a loan request to the target's inbox."""
+        """Deliver a loan request to the target's inbox.
+
+        Args:
+            sender: The agent requesting the loan.
+            target: The agent receiving the loan request.
+            amount: Requested loan amount in coins.
+            message: Accompanying message text.
+            day: Current simulation day.
+
+        Returns:
+            Interaction record for the loan request.
+        """
         safe_amount = max(0.0, float(amount))
         target.add_to_inbox(
             {
@@ -178,6 +227,17 @@ class InteractionEngine:
         The ``sender`` is the citizen responding to a previous loan request; if
         they accept, they act as the lender and wealth moves from them to the
         original requester (``target``).
+
+        Args:
+            sender: The agent responding to the loan request.
+            target: The original loan requester.
+            amount: Loan amount in coins.
+            status: Either 'accepted' or 'rejected'.
+            message: Accompanying message text.
+            day: Current simulation day.
+
+        Returns:
+            Interaction record for the loan response.
         """
         safe_amount = max(0.0, float(amount))
         accepted = status == "accepted"
@@ -206,7 +266,16 @@ class InteractionEngine:
 
     @staticmethod
     def _transfer_wealth(lender: "Agent", borrower: "Agent", amount: float) -> float:
-        """Move coins from lender to borrower, capped by available wealth."""
+        """Move coins from lender to borrower, capped by available wealth.
+
+        Args:
+            lender: The agent providing the loan.
+            borrower: The agent receiving the loan.
+            amount: Requested transfer amount in coins.
+
+        Returns:
+            The actual amount transferred (may be less than requested).
+        """
         safe_amount = max(0.0, float(amount))
         if safe_amount <= 0:
             return 0.0
@@ -237,6 +306,13 @@ class InteractionEngine:
         Each street has a small chance of producing one random chat between two
         distinct agents.  These encounters do not invoke the LLM; they are
         generated heuristically to enrich the social graph.
+
+        Args:
+            city: The simulated city containing all agents.
+            day: Current simulation day.
+
+        Returns:
+            List of random-encounter interaction records.
         """
         interactions: list[dict[str, Any]] = []
         for street in city.streets:
