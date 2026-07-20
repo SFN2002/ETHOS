@@ -153,6 +153,27 @@ ETHOS/
 
 ---
 
+## 🖼️ Project Visualization
+
+The following screenshots illustrate ETHOS in action — from live simulation telemetry to individual agent inspection and emergent memory-driven reasoning.
+
+<div align="center">
+  <img src="assets/simulation_logs.png" alt="Simulation logs">
+  <p><i>Real-time terminal output showing deterministic engine governance and LLM-based API calls.</i></p>
+</div>
+
+<div align="center">
+  <img src="assets/agent_profile.png" alt="Agent profile">
+  <p><i>Interactive agent inspector: Viewing a citizen's profile and cognitive state.</i></p>
+</div>
+
+<div align="center">
+  <img src="assets/memory_timeline.png" alt="Memory timeline">
+  <p><i>Generative memory timeline demonstrating moral reasoning and decision-making under stress.</i></p>
+</div>
+
+---
+
 ## 🚀 Getting Started
 
 ### 1. Clone the Repository
